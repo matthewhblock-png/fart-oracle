@@ -6,14 +6,8 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Health check — visit /health in your browser to confirm the API key is loaded
 app.get('/health', (req, res) => {
-  const keyLoaded = !!process.env.ANTHROPIC_API_KEY;
-  res.json({
-    status: 'ok',
-    apiKeyLoaded: keyLoaded,
-    keyPreview: keyLoaded ? process.env.ANTHROPIC_API_KEY.slice(0, 10) + '...' : 'NOT SET'
-  });
+  res.json({ status: 'ok', apiKeyLoaded: !!process.env.ANTHROPIC_API_KEY });
 });
 
 app.post('/api/claude', async (req, res) => {
@@ -35,14 +29,13 @@ app.post('/api/claude', async (req, res) => {
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('Anthropic API error:', JSON.stringify(data));
       return res.status(response.status).json(data);
     }
 
     res.json(data);
   } catch (err) {
-    console.error('Server error:', err.message);
-    res.status(500).json({ error: { message: err.message || 'Server error' } });
+    console.error(err);
+    res.status(500).json({ error: { message: 'Server error' } });
   }
 });
 
