@@ -49,6 +49,9 @@
   @keyframes slide-in { from{opacity:0;transform:translateX(-10px)} to{opacity:1;transform:translateX(0)} }
   .fart-name { font-family: 'Permanent Marker', cursive; color: var(--cream); font-size: 0.95rem; flex: 1; }
   .fart-source { font-size: 0.7rem; color: var(--mustard); opacity: 0.7; flex: 1; }
+  .fart-link { font-size: 0.65rem; margin-top: 0.3rem; }
+  .fart-link a { color: var(--stink); opacity: 0.8; text-decoration: none; transition: opacity 0.2s; }
+  .fart-link a:hover { opacity: 1; text-decoration: underline; }
   .fart-score { font-family: 'Bebas Neue', sans-serif; font-size: 1.4rem; color: var(--stink); letter-spacing: 1px; white-space: nowrap; }
   #recorder-section { text-align: center; }
   .mic-ring { width: 140px; height: 140px; border-radius: 50%; border: 3px solid var(--mustard); display: flex; align-items: center; justify-content: center; margin: 2rem auto; position: relative; cursor: pointer; transition: all 0.3s; background: radial-gradient(circle, rgba(139,69,19,0.2), transparent); }
@@ -175,7 +178,7 @@ Search multiple queries to get broad coverage. Return ONLY valid JSON, no markdo
     'fart moments in reality TV shows'
   ];
   const picked = categories.sort(() => Math.random() - 0.5).slice(0, 4);
-  const prompt = `Random seed: ${seed}. Search the web thoroughly for the funniest and most popular fart moments across all media. Focus your searches on these categories: ${picked.join('; ')}. Find moments people actually discuss on YouTube, Reddit, and entertainment sites. Give me 10 results that are a MIX of well-known classics and lesser-known gems. Vary your picks -- do NOT just list the same obvious ones every time. Keep ALL text values under 60 characters. Return ONLY a JSON array:\n[{"name":"short name","source":"show/film/video (year)","score":9,"duration":3,"volume":"explosive","pitch":"deep","style":"prolonged","description":"brief description of why it's famous"}]`;
+  const prompt = `Random seed: ${seed}. Search the web thoroughly for the funniest and most popular fart moments across all media. Focus your searches on these categories: ${picked.join('; ')}. Find moments people actually discuss on YouTube, Reddit, and entertainment sites. Give me 10 results that are a MIX of well-known classics and lesser-known gems. Vary your picks -- do NOT just list the same obvious ones every time. For each result, include a real URL where people can watch or read about it (YouTube clip, Reddit thread, article, etc). Keep ALL text values under 60 characters. Return ONLY a JSON array:\n[{"name":"short name","source":"show/film/video (year)","score":9,"duration":3,"volume":"explosive","pitch":"deep","style":"prolonged","description":"brief description of why it's famous","url":"https://..."}]`;
   try {
     const raw = await callClaude(system, prompt, true);
     let cleaned = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
@@ -211,7 +214,7 @@ async function addMore() {
   ];
   const picked = deepCuts.sort(() => Math.random() - 0.5).slice(0, 3);
   const system = `You are a pop culture flatulence researcher with web search. Search thoroughly across YouTube, Reddit, and entertainment sites to find REAL fart moments people discuss online. Return ONLY valid JSON array, no markdown.`;
-  const prompt = `Random seed: ${seed}. Search the web for more funny/famous fart moments. Focus on: ${picked.join('; ')}. EXCLUDE these already in the database: ${existing}. Find 5 fresh picks -- prioritize ones with real YouTube videos, Reddit threads, or blog mentions. Keep ALL text under 60 chars. Return ONLY JSON array:\n[{"name":"short name","source":"show/video (year)","score":8,"duration":3,"volume":"high","pitch":"mid","style":"smooth","description":"why it's notable, under 60 chars"}]`;
+  const prompt = `Random seed: ${seed}. Search the web for more funny/famous fart moments. Focus on: ${picked.join('; ')}. EXCLUDE these already in the database: ${existing}. Find 5 fresh picks -- prioritize ones with real YouTube videos, Reddit threads, or blog mentions. For each result, include a real URL where people can watch or read about it. Keep ALL text under 60 chars. Return ONLY JSON array:\n[{"name":"short name","source":"show/video (year)","score":8,"duration":3,"volume":"high","pitch":"mid","style":"smooth","description":"why it's notable, under 60 chars","url":"https://..."}]`;
   try {
     const raw = await callClaude(system, prompt, true);
     let cleaned = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
@@ -228,7 +231,8 @@ function renderDatabase() {
   list.innerHTML = '';
   fartDatabase.forEach(f => {
     const li = document.createElement('li');
-    li.innerHTML = `<div><div class="fart-name">${f.name}</div><div class="fart-source">${f.source}</div></div><div class="fart-score">${f.score}/10</div>`;
+    const linkHtml = f.url ? `<div class="fart-link"><a href="${f.url}" target="_blank" rel="noopener">&#x1F517; Watch / Read</a></div>` : '';
+    li.innerHTML = `<div><div class="fart-name">${f.name}</div><div class="fart-source">${f.source}</div>${linkHtml}</div><div class="fart-score">${f.score}/10</div>`;
     list.appendChild(li);
   });
 }
