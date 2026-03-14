@@ -268,8 +268,8 @@ function renderDatabase() {
   list.innerHTML = '';
   fartDatabase.forEach(f => {
     const li = document.createElement('li');
-    const linkHtml = f.url ? `<div class="fart-link"><a href="${f.url}" target="_blank" rel="noopener">&#x1F517; Watch / Read</a></div>` : '';
-    li.innerHTML = `<div><div class="fart-name">${f.name}</div><div class="fart-source">${f.source}</div>${linkHtml}</div><div class="fart-score">${f.score}/10</div>`;
+    const url = (f.url && f.url !== 'https://...' && f.url.startsWith('http')) ? f.url : `https://www.youtube.com/results?search_query=${encodeURIComponent(f.name + ' ' + f.source + ' fart scene')}`;
+    li.innerHTML = `<div><div class="fart-name">${f.name}</div><div class="fart-source">${f.source}</div><div class="fart-link"><a href="${url}" target="_blank" rel="noopener">&#x1F517; Watch / Read</a></div></div><div class="fart-score">${f.score}/10</div>`;
     list.appendChild(li);
   });
 }
