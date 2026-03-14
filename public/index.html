@@ -150,7 +150,15 @@ async function callClaude(systemPrompt, userPrompt, useWebSearch = false) {
   const res = await fetch(CLAUDE_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `API error ${res.status}`); }
   const data = await res.json();
-  return (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+  if (!useWebSearch) return text;
+  const urls = [];
+  (data.content || []).forEach(b => {
+    if (b.type === 'web_search_tool_result' && b.content) {
+      b.content.forEach(r => { if (r.type === 'web_search_result' && r.url) urls.push({ title: r.title || '', url: r.url }); });
+    }
+  });
+  return { text, urls };
 }
 
 async function buildDatabase() {
@@ -180,11 +188,25 @@ Search multiple queries to get broad coverage. Return ONLY valid JSON, no markdo
   const picked = categories.sort(() => Math.random() - 0.5).slice(0, 4);
   const prompt = `Random seed: ${seed}. Search the web thoroughly for the funniest and most popular fart moments across all media. Focus your searches on these categories: ${picked.join('; ')}. Find moments people actually discuss on YouTube, Reddit, and entertainment sites. Give me 10 results that are a MIX of well-known classics and lesser-known gems. Vary your picks -- do NOT just list the same obvious ones every time. For each result, include a real URL where people can watch or read about it (YouTube clip, Reddit thread, article, etc). Keep ALL text values under 60 characters. Return ONLY a JSON array:\n[{"name":"short name","source":"show/film/video (year)","score":9,"duration":3,"volume":"explosive","pitch":"deep","style":"prolonged","description":"brief description of why it's famous","url":"https://..."}]`;
   try {
-    const raw = await callClaude(system, prompt, true);
+    const result = await callClaude(system, prompt, true);
+    const raw = typeof result === 'string' ? result : result.text;
+    const searchUrls = (typeof result === 'object' && result.urls) ? result.urls : [];
     let cleaned = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
     const start = cleaned.indexOf('['), end = cleaned.lastIndexOf(']') + 1;
     if (start >= 0 && end > start) cleaned = cleaned.slice(start, end);
     fartDatabase = JSON.parse(cleaned);
+    if (searchUrls.length > 0) {
+      fartDatabase.forEach(f => {
+        if (!f.url || f.url === 'https://...') {
+          const match = searchUrls.find(u => {
+            const lower = (u.title + ' ' + u.url).toLowerCase();
+            const terms = (f.name + ' ' + f.source).toLowerCase().split(/[\s\-()]+/).filter(t => t.length > 2);
+            return terms.some(t => lower.includes(t));
+          });
+          if (match) f.url = match.url;
+        }
+      });
+    }
     renderDatabase();
     status.textContent = `✅ ${fartDatabase.length} legendary farts loaded from across the internet.`;
     document.getElementById('add-more-btn').disabled = false;
@@ -216,10 +238,25 @@ async function addMore() {
   const system = `You are a pop culture flatulence researcher with web search. Search thoroughly across YouTube, Reddit, and entertainment sites to find REAL fart moments people discuss online. Return ONLY valid JSON array, no markdown.`;
   const prompt = `Random seed: ${seed}. Search the web for more funny/famous fart moments. Focus on: ${picked.join('; ')}. EXCLUDE these already in the database: ${existing}. Find 5 fresh picks -- prioritize ones with real YouTube videos, Reddit threads, or blog mentions. For each result, include a real URL where people can watch or read about it. Keep ALL text under 60 chars. Return ONLY JSON array:\n[{"name":"short name","source":"show/video (year)","score":8,"duration":3,"volume":"high","pitch":"mid","style":"smooth","description":"why it's notable, under 60 chars","url":"https://..."}]`;
   try {
-    const raw = await callClaude(system, prompt, true);
+    const result = await callClaude(system, prompt, true);
+    const raw = typeof result === 'string' ? result : result.text;
+    const searchUrls = (typeof result === 'object' && result.urls) ? result.urls : [];
     let cleaned = raw.replace(/\`\`\`json|\`\`\`/g, '').trim();
     const start = cleaned.indexOf('['), end = cleaned.lastIndexOf(']') + 1;
-    fartDatabase = [...fartDatabase, ...JSON.parse(cleaned.slice(start, end))];
+    const newEntries = JSON.parse(cleaned.slice(start, end));
+    if (searchUrls.length > 0) {
+      newEntries.forEach(f => {
+        if (!f.url || f.url === 'https://...') {
+          const match = searchUrls.find(u => {
+            const lower = (u.title + ' ' + u.url).toLowerCase();
+            const terms = (f.name + ' ' + f.source).toLowerCase().split(/[\s\-()]+/).filter(t => t.length > 2);
+            return terms.some(t => lower.includes(t));
+          });
+          if (match) f.url = match.url;
+        }
+      });
+    }
+    fartDatabase = [...fartDatabase, ...newEntries];
     renderDatabase();
     status.textContent = `✅ Database expanded to ${fartDatabase.length} legendary farts.`;
   } catch(e) { status.textContent = '⚠️ Could not load more. Try again.'; console.error(e); }
