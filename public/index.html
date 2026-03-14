@@ -145,7 +145,7 @@ let audioFeatures = null;
 })();
 
 async function callClaude(systemPrompt, userPrompt, useWebSearch = false) {
-  const body = { model: MODEL, max_tokens: 2000, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] };
+  const body = { model: MODEL, max_tokens: 1024, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] };
   if (useWebSearch) body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
   const res = await fetch(CLAUDE_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `API error ${res.status}`); }
@@ -167,26 +167,10 @@ async function buildDatabase() {
   btn.disabled = true;
   status.innerHTML = '<span class="loading-dots">Scouring YouTube, Reddit, and the deep corners of the internet</span>';
   const seed = Math.floor(Math.random() * 100000);
-  const system = `You are a pop culture flatulence research expert with access to web search. Your job is to find REAL, verifiable fart moments that people actually talk about online. Use web search extensively to find results from:
-- YouTube (viral fart compilations, famous fart scenes, fart prank videos)
-- Reddit (r/funny, r/movies, r/television, r/videos posts about memorable farts)
-- Entertainment blogs and listicles (BuzzFeed, Cracked, ScreenRant, WatchMojo lists)
-- Movie/TV databases and reviews mentioning fart scenes
-Search multiple queries to get broad coverage. Return ONLY valid JSON, no markdown, no backticks.`;
-  const categories = [
-    'viral YouTube fart videos and compilations',
-    'funniest fart scenes in movies ranked',
-    'reddit most upvoted fart moments',
-    'iconic TV show fart scenes',
-    'famous stand-up comedy fart bits',
-    'fart pranks that went viral',
-    'animated cartoon fart scenes kids remember',
-    'celebrity fart moments caught on camera',
-    'best fart scenes in comedy films',
-    'fart moments in reality TV shows'
-  ];
-  const picked = categories.sort(() => Math.random() - 0.5).slice(0, 4);
-  const prompt = `Random seed: ${seed}. Search the web thoroughly for the funniest and most popular fart moments across all media. Focus your searches on these categories: ${picked.join('; ')}. Find moments people actually discuss on YouTube, Reddit, and entertainment sites. Give me 10 results that are a MIX of well-known classics and lesser-known gems. Vary your picks -- do NOT just list the same obvious ones every time. For each result, include a real URL where people can watch or read about it (YouTube clip, Reddit thread, article, etc). Keep ALL text values under 60 characters. Return ONLY a JSON array:\n[{"name":"short name","source":"show/film/video (year)","score":9,"duration":3,"volume":"explosive","pitch":"deep","style":"prolonged","description":"brief description of why it's famous","url":"https://..."}]`;
+  const system = `Pop culture fart expert. Search YouTube, Reddit, blogs. Return ONLY valid JSON, no markdown.`;
+  const topics = ['YouTube fart videos','movie fart scenes','reddit fart moments','TV fart scenes','comedy fart bits','fart pranks','cartoon farts','celebrity farts','comedy film farts','reality TV farts'];
+  const picked = topics.sort(() => Math.random() - 0.5).slice(0, 3);
+  const prompt = `Seed:${seed}. Search web for famous/funny fart moments. Focus: ${picked.join('; ')}. Mix classics and deep cuts. 10 results. JSON array only:\n[{"name":"<60chars","source":"show (year)","score":9,"duration":3,"volume":"explosive","pitch":"deep","style":"prolonged","description":"<60chars","url":"https://..."}]`;
   try {
     const result = await callClaude(system, prompt, true);
     const raw = typeof result === 'string' ? result : result.text;
@@ -222,21 +206,10 @@ async function addMore() {
   status.innerHTML = '<span class="loading-dots">Digging deeper into the internet for more gems</span>';
   const existing = fartDatabase.map(f => `${f.name} (${f.source})`).join(', ');
   const seed = Math.floor(Math.random() * 100000);
-  const deepCuts = [
-    'obscure fart scenes in indie films',
-    'viral fart TikToks and YouTube shorts',
-    'fart moments in video games',
-    'international comedy fart scenes',
-    'podcast moments with unexpected farts',
-    'live TV fart bloopers',
-    'fart gags in classic sitcoms',
-    'anime fart scenes',
-    'fart scenes in horror movies',
-    'sports broadcasts with audible farts'
-  ];
-  const picked = deepCuts.sort(() => Math.random() - 0.5).slice(0, 3);
-  const system = `You are a pop culture flatulence researcher with web search. Search thoroughly across YouTube, Reddit, and entertainment sites to find REAL fart moments people discuss online. Return ONLY valid JSON array, no markdown.`;
-  const prompt = `Random seed: ${seed}. Search the web for more funny/famous fart moments. Focus on: ${picked.join('; ')}. EXCLUDE these already in the database: ${existing}. Find 5 fresh picks -- prioritize ones with real YouTube videos, Reddit threads, or blog mentions. For each result, include a real URL where people can watch or read about it. Keep ALL text under 60 chars. Return ONLY JSON array:\n[{"name":"short name","source":"show/video (year)","score":8,"duration":3,"volume":"high","pitch":"mid","style":"smooth","description":"why it's notable, under 60 chars","url":"https://..."}]`;
+  const topics = ['indie film farts','viral TikTok farts','video game farts','international comedy farts','live TV fart bloopers','classic sitcom farts','anime farts','horror movie farts','sports broadcast farts'];
+  const picked = topics.sort(() => Math.random() - 0.5).slice(0, 2);
+  const system = `Pop culture fart researcher. Return ONLY valid JSON array, no markdown.`;
+  const prompt = `Seed:${seed}. Search web for more fart moments. Focus: ${picked.join('; ')}. EXCLUDE: ${existing}. 5 fresh picks. JSON array only:\n[{"name":"<60chars","source":"show (year)","score":8,"duration":3,"volume":"high","pitch":"mid","style":"smooth","description":"<60chars","url":"https://..."}]`;
   try {
     const result = await callClaude(system, prompt, true);
     const raw = typeof result === 'string' ? result : result.text;
