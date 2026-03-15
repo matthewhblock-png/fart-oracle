@@ -144,21 +144,38 @@ let audioFeatures = null;
   }
 })();
 
-async function callClaude(systemPrompt, userPrompt, useWebSearch = false) {
+async function callClaude(systemPrompt, userPrompt, useWebSearch = false, retries = 3) {
   const body = { model: MODEL, max_tokens: 1024, system: systemPrompt, messages: [{ role: 'user', content: userPrompt }] };
   if (useWebSearch) body.tools = [{ type: 'web_search_20250305', name: 'web_search' }];
-  const res = await fetch(CLAUDE_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-  if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `API error ${res.status}`); }
-  const data = await res.json();
-  const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
-  if (!useWebSearch) return text;
-  const urls = [];
-  (data.content || []).forEach(b => {
-    if (b.type === 'web_search_tool_result' && b.content) {
-      b.content.forEach(r => { if (r.type === 'web_search_result' && r.url) urls.push({ title: r.title || '', url: r.url }); });
+  for (let attempt = 0; attempt < retries; attempt++) {
+    const res = await fetch(CLAUDE_API, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    if (res.status === 429 || res.status === 529) {
+      const wait = Math.min(30, (attempt + 1) * 10);
+      const statusEl = document.getElementById('db-status');
+      if (statusEl) statusEl.innerHTML = `<span class="loading-dots">Rate limited — retrying in ${wait}s</span>`;
+      await new Promise(r => setTimeout(r, wait * 1000));
+      continue;
     }
-  });
-  return { text, urls };
+    if (!res.ok) { const err = await res.json().catch(() => ({})); throw new Error(err?.error?.message || `API error ${res.status}`); }
+    const data = await res.json();
+    if (data.type === 'error' && data.error?.type === 'rate_limit_error') {
+      const wait = Math.min(30, (attempt + 1) * 10);
+      const statusEl = document.getElementById('db-status');
+      if (statusEl) statusEl.innerHTML = `<span class="loading-dots">Rate limited — retrying in ${wait}s</span>`;
+      await new Promise(r => setTimeout(r, wait * 1000));
+      continue;
+    }
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    if (!useWebSearch) return text;
+    const urls = [];
+    (data.content || []).forEach(b => {
+      if (b.type === 'web_search_tool_result' && b.content) {
+        b.content.forEach(r => { if (r.type === 'web_search_result' && r.url) urls.push({ title: r.title || '', url: r.url }); });
+      }
+    });
+    return { text, urls };
+  }
+  throw new Error('Rate limited after multiple retries. Please wait a minute and try again.');
 }
 
 async function buildDatabase() {
